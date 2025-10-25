@@ -1,0 +1,61 @@
+{
+    "FINANCIAL_CONSTANTS": {
+        "HOURLY_LABOR_RATE": 150.00,
+        "SALES_TAX_RATE": 0.00,
+        "EQUIPMENT_OVERHEAD": 0.28,
+        "PROFIT_MARGIN": 0.15
+    },
+    
+    "AC_UNITS": {
+        "none": { "name": "No AC/Heat Pump (Furnace Only)", "cost": 0.00 },
+        "2ton_std": { "name": "2 Ton Standard Efficiency AC", "cost": 2700.00 },
+        "3ton_std": { "name": "3 Ton Standard Efficiency AC", "cost": 3000.00 },
+        "4ton_prem": { "name": "4 Ton Standard Efficiency AC", "cost": 3400.00 },
+        "5ton_var": { "name": "5 Ton Standard Efficiency AC", "cost": 3700.00 }
+    },
+    
+    "FURNACE_UNITS": {
+        "none": { "name": "No Furnace (AC Only)", "cost": 0.00 },
+        "45k_80afue": { "name": "45K BTU 80 AFUE Single Stage", "cost": 1200.00 },
+        "60k_80afue": { "name": "60K BTU 80 AFUE Single Stage", "cost": 1400.00 },
+        "80k_80afue": { "name": "80K BTU 80 AFUE Single Stage", "cost": 1600.00 },
+        "100k_80afue": { "name": "100K BTU 80 AFUE Single Stage", "cost": 1800.00 },
+        "120k_80afue": { "name": "120K BTU 80 AFUE Single Stage", "cost": 2000.00 },
+        "60k_92afue": { "name": "60K BTU 92 AFUE Two Stage", "cost": 2000.00 },
+        "100k_92afue": { "name": "100K BTU 92 AFUE Two Stage", "cost": 2300.00 },
+        "120k_mod": { "name": "120K BTU Modulating 95+ AFUE", "cost": 3500.00 }
+    },
+    
+    "EXTRA_ITEMS": {
+        "duct_supply": { "name": "Additional Supply Run (Each)", "price": 425.00, "category": "Ductwork & Airflow", "type": "quantity", "default_qty": 0 }, 
+        "duct_return": { "name": "Additional Return Run (Each)", "price": 500.00, "category": "Ductwork & Airflow", "type": "quantity", "default_qty": 0 }, 
+        "lined_boots": { "name": "Lined Boots / Acoustic Flex (Qty)", "price": 75.00, "category": "Ductwork & Airflow", "type": "quantity", "default_qty": 0 }, 
+        "zone_control": { "name": "Zone Control System (2-Zone)", "price": 1250.00, "category": "Ductwork & Airflow", "type": "single" },
+        "duct_sealing": { "name": "Duct Sealing (AeroSeal or Manual)", "price": 1150.00, "category": "Ductwork & Airflow", "type": "single" },
+        "high_flow_grille": { "name": "High-Flow Return Grille", "price": 150.00, "category": "Ductwork & Airflow", "type": "single" },
+        "media_filter": { "name": "4–5\" Media Filter Cabinet (MERV-13)", "price": 425.00, "category": "Filtration & Air Quality", "type": "single" }, 
+        "electronic_air": { "name": "Electronic Air Cleaner", "price": 850.00, "category": "Filtration & Air Quality", "type": "single" }, 
+        "uv_light": { "name": "UV Light (Reduces microbial growth)", "price": 500.00, "category": "Filtration & Air Quality", "type": "single" }, 
+        "erv_hrv": { "name": "ERV/HRV Ventilation Unit", "price": 2200.00, "category": "Filtration & Air Quality", "type": "single" }, 
+        "humidifier": { "name": "Humidifier (Bypass or Fan-Powered)", "price": 625.00, "category": "Filtration & Air Quality", "type": "single" }, 
+        "dehumidifier": { "name": "Dehumidifier (Standalone or Inline)", "price": 1500.00, "category": "Filtration & Air Quality", "type": "single" }, 
+        "extend_gas": { "name": "Extend Gas Line (per 10 ft)", "price": 160.00, "category": "Gas & Venting", "type": "quantity", "default_qty": 0 }, 
+        "new_shutoff": { "name": "New Gas Shutoff & Drip Leg", "price": 100.00, "category": "Gas & Venting", "type": "single" },
+        "concentric_vent": { "name": "Concentric Vent Kit", "price": 200.00, "category": "Gas & Venting", "type": "single" }, 
+        "pvc_extension": { "name": "PVC Vent Extension (per 10 ft)", "price": 87.50, "category": "Gas & Venting", "type": "quantity", "default_qty": 0 }, 
+        "chimney_liner": { "name": "Stainless Chimney Liner", "price": 775.00, "category": "Gas & Venting", "type": "single" }, 
+        "smart_thermostat": { "name": "Smart Thermostat (Nest/Ecobee)", "price": 275.00, "category": "Electrical & Controls", "type": "single" }, 
+        "low_voltage_rewire": { "name": "Low-Voltage Rewire (per run)", "price": 97.50, "category": "Electrical & Controls", "type": "quantity", "default_qty": 0 }, 
+        "new_disconnect": { "name": "New Disconnect / Breaker", "price": 162.50, "category": "Electrical & Controls", "type": "single" }, 
+        "surge_protector": { "name": "Surge Protector (Furnace controls)", "price": 215.00, "category": "Electrical & Controls", "type": "single" }, 
+        "condensate_pump": { "name": "New Condensate Pump", "price": 150.00, "category": "Condensate & Drainage", "type": "single" }, 
+        "drain_extension": { "name": "Drain Line Extension (per 10 ft)", "price": 50.00, "category": "Condensate & Drainage", "type": "quantity", "default_qty": 0 }, 
+        "safety_float": { "name": "Safety Float Switch (Prevents overflow)", "price": 65.00, "category": "Condensate & Drainage", "type": "single" }, 
+        "duct_insulation": { "name": "Duct Insulation Upgrade (R-8→R-12)", "price": 400.00, "category": "Finishing & Misc.", "type": "single" }, 
+        "sheet_metal": { "name": "Sheet Metal Transitions (Each custom piece)", "price": 100.00, "category": "Finishing & Misc.", "type": "quantity", "default_qty": 1 }, 
+        "platform_frame": { "name": "Platform or Hanging Frame", "price": 325.00, "category": "Finishing & Misc.", "type": "single" }, 
+        "condensate_alarm": { "name": "Condensate Safety Alarm", "price": 150.00, "category": "Finishing & Misc.", "type": "single" }, 
+        "combustion_intake": { "name": "Combustion Air Intake (Dedicated fresh air)", "price": 200.00, "category": "Finishing & Misc.", "type": "single" }, 
+        "permit_handling": { "name": "Permit Handling (When not included)", "price": 150.00, "category": "Finishing & Misc.", "type": "single" }
+    }
+}

@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HVAC Quote Calculator (External Data)</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f4f4f9; display: flex; justify-content: center; }
+        .container { max-width: 650px; width: 100%; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; margin-bottom: 25px; }
+        label { display: block; margin-top: 15px; font-weight: bold; color: #555; }
+        input[type="text"], input[type="number"], select, textarea { 
+            width: 95%; 
+            padding: 10px; 
+            margin-top: 5px; 
+            border: 1px solid #ccc; 
+            border-radius: 4px; 
+            box-sizing: border-box; 
+        }
+        select { width: 100%; }
+        textarea { resize: vertical; min-height: 80px; }
+        .button-group { display: flex; gap: 10px; margin-top: 30px; }
+        .button-group button { width: 50%; margin-top: 0; }
+        button { background-color: #007bff; color: white; padding: 12px 15px; border: none; border-radius: 4px; cursor: pointer; margin-top: 30px; width: 100%; font-size: 16px; font-weight: bold; }
+        button:hover { background-color: #0056b3; }
+        #results { border-top: 2px dashed #ccc; padding-top: 20px; margin-top: 30px; }
+        .quote-detail { margin-top: 10px; padding: 5px 0; display: flex; justify-content: space-between; font-size: 1.05em; }
+        .total-row { font-size: 1.6em; color: #28a745; font-weight: bold; padding-top: 15px; border-top: 2px solid #28a745; margin-top: 15px; }
+        .sub-header { margin-top: 25px; font-weight: bold; text-decoration: underline; }
+        .error { color: red; font-weight: bold; margin-top: 10px; }
+        .quote-detail input[type="checkbox"] { margin-right: 10px; }
+        .quote-detail label { display: flex; align-items: center; }
+        .notes-output { 
+            white-space: pre-wrap;
+            border: 1px solid #eee;
+            padding: 10px;
+            margin-top: 10px;
+            background: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>HVAC System Quote Estimator (AC & Furnace)</h1>
+    <p class="error" id="error-message" style="display: none;">Please ensure all mandatory fields are selected and valid labor hours are entered.</p>
+    <p class="error" id="loading-message">Loading pricing data... Please wait.</p>
+
+    <form id="quoteForm">
+        <label for="project_name">Client/Job Name:</label>
+        <input type="text" id="project_name" value="Full System Replacement" required>
+        
+        <div class="sub-header">Job Notes / Custom Details</div>
+        <label for="job_notes">Notes for the Quote (Appears on breakdown):</label>
+        <textarea id="job_notes" placeholder="e.g., Special warranty details, staging area, customer expectations, included materials not listed below."></textarea>
+        
+        <div class="sub-header">1. Cooling System (AC/Heat Pump)</div>
+        <label for="ac_unit_select">Select AC/Heat Pump Unit:</label>
+        <select id="ac_unit_select" required disabled>
+            <option>Loading...</option>
+        </select>
+        <label for="ac_labor_hours">AC/Heat Pump Labor Hours:</label>
+        <input type="number" id="ac_labor_hours" step="0.5" value="9.0" required min="0">
+
+        <div class="sub-header">2. Heating System (Furnace)</div>
+        <label for="furnace_unit_select">Select Furnace Unit:</label>
+        <select id="furnace_unit_select" required disabled>
+            <option>Loading...</option>
+        </select>
+        <label for="furnace_labor_hours">Furnace Labor Hours:</label>
+        <input type="number" id="furnace_labor_hours" step="0.5" value="8.0" required min="0">
+        
+        <div class="sub-header">3. Extra Items & Modifications</div>
+        <div id="extra_items_container">
+            </div>
+        
+        <button type="button" onclick="calculateQuote()">Generate Quote</button>
+    </form>
+    
+    <div id="results" style="display: none;">
+        <h2>Quote Details for: <span id="output-project"></span></h2>
+        
+        <div id="output-breakdown"></div>
+
+        <div class="quote-detail total-row">
+            <span>FINAL PRICE:</span>
+            <span id="output-total"></span>
+        </div>
+
+        <div class="button-group">
+            <button type="button" onclick="exportToPdf()">Export to PDF Estimate 📄</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Global variables to hold the loaded data and constants
+    let DATA = {}; 
+    let HOURLY_LABOR_RATE = 0;
+    let EQUIPMENT_OVERHEAD = 0;
+    let PROFIT_MARGIN = 0;
+    let AC_UNITS = {};
+    let FURNACE_UNITS = {};
+    let EXTRA_ITEMS = {};
+
+
+    // --- Core Utility Functions (No change, just using loaded data) ---
+    
+    function currency(value) {
+        return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    }
+    
+    function populateSelect(selectId, items) {
+        const selectElement = document.getElementById(selectId);
+        selectElement.innerHTML = '';
+        selectElement.disabled = false;
+        for (const key in items) {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = `${items[key].name} (Your Cost: ${currency(items[key].cost)})`;
+            selectElement.appendChild(option);
+        }
+    }
+    
+    function createCheckboxes() {
+        const container = document.getElementById('extra_items_container');
+        let currentCategory = '';
+        container.innerHTML = ''; 
+        
+        for (const key in EXTRA_ITEMS) {
+            const item = EXTRA_ITEMS[key];
+            
+            if (item.category !== currentCategory) {
+                const categoryHeader = document.createElement('h4');
+                categoryHeader.textContent = item.category;
+                categoryHeader.style.marginTop = '15px';
+                categoryHeader.style.marginBottom = '5px';
+                categoryHeader.style.borderBottom = '1px dotted #ccc';
+                currentCategory = item.category;
+                container.appendChild(categoryHeader);
+            }
+
+            const div = document.createElement('div');
+            div.className = 'quote-detail'; 
+            
+            const elementId = `extra_${key}`;
+            
+            let inputHtml;
+            let priceDisplay;
+
+            if (item.type === 'quantity') {
+                inputHtml = `
+                    <input 
+                        type="number" 
+                        id="${elementId}" 
+                        name="${key}" 
+                        value="${item.default_qty}" 
+                        min="0" 
+                        step="1" 
+                        style="width: 70px; text-align: right; margin: 0 10px;"
+                    >
+                `;
+                priceDisplay = `(${currency(item.price)} per unit)`;
+
+            } else {
+                inputHtml = `<input type="checkbox" id="${elementId}" name="${key}">`;
+                priceDisplay = `(${currency(item.price)})`;
+            }
+
+            div.innerHTML = `
+                <label for="${elementId}" style="margin-top: 0; font-weight: normal; flex-grow: 1; display: flex; align-items: center;">
+                    ${inputHtml}
+                    ${item.name} 
+                </label>
+                <span style="font-weight: bold; text-align: right;">${priceDisplay}</span>
+            `;
+            container.appendChild(div);
+        }
+    }
+    
+    // --- Data Loading and Initialization ---
+
+    /**
+     * Loads pricing data from the JSON file and initializes the app.
+     */
+    async function loadPricingData() {
+        try {
+            const response = await fetch('pricing_data.JSON');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            DATA = await response.json();
+            
+            // Assign loaded values to global constants/variables
+            HOURLY_LABOR_RATE = DATA.FINANCIAL_CONSTANTS.HOURLY_LABOR_RATE;
+            EQUIPMENT_OVERHEAD = DATA.FINANCIAL_CONSTANTS.EQUIPMENT_OVERHEAD;
+            PROFIT_MARGIN = DATA.FINANCIAL_CONSTANTS.PROFIT_MARGIN;
+            AC_UNITS = DATA.AC_UNITS;
+            FURNACE_UNITS = DATA.FURNACE_UNITS;
+            EXTRA_ITEMS = DATA.EXTRA_ITEMS;
+
+            // Initialize the form elements now that data is loaded
+            populateSelect('ac_unit_select', AC_UNITS);
+            populateSelect('furnace_unit_select', FURNACE_UNITS);
+            createCheckboxes();
+            
+            // Hide loading message
+            document.getElementById('loading-message').style.display = 'none';
+
+        } catch (e) {
+            const errorElement = document.getElementById('loading-message');
+            errorElement.textContent = `Error loading pricing data. Please check if 'pricing_data.json' exists and is valid. Details: ${e.message}`;
+            errorElement.style.display = 'block';
+        }
+    }
+
+    // Load data when the page loads
+    document.addEventListener('DOMContentLoaded', loadPricingData);
+
+
+    // --- Main Calculation Function ---
+
+    function calculateQuote() {
+        // Ensure data is loaded before running calculations
+        if (Object.keys(AC_UNITS).length === 0) {
+            alert("Pricing data not loaded yet. Please wait or check for errors.");
+            return;
+        }
+
+        // 1. Get Input Values
+        const projectName = document.getElementById('project_name').value.trim();
+        const acKey = document.getElementById('ac_unit_select').value;
+        const furnaceKey = document.getElementById('furnace_unit_select').value;
+        const jobNotes = document.getElementById('job_notes').value.trim();
+
+        const acLaborHours = +document.getElementById('ac_labor_hours').value;
+        const furnaceLaborHours = +document.getElementById('furnace_labor_hours').value;
+
+        const errorMessageElement = document.getElementById('error-message');
+        
+        // Error validation
+        if (isNaN(acLaborHours) || isNaN(furnaceLaborHours) || acLaborHours < 0 || furnaceLaborHours < 0) {
+            errorMessageElement.style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            return;
+        }
+        
+        errorMessageElement.style.display = 'none';
+        
+        // 2. --- THE HVAC CALCULATION LOGIC (Internal Math) ---
+        
+        // A. Wholesale/Raw Costs
+        const acUnitCostWholesale = AC_UNITS[acKey].cost;
+        const furnaceUnitCostWholesale = FURNACE_UNITS[furnaceKey].cost;
+        const totalUnitCostWholesale = acUnitCostWholesale + furnaceUnitCostWholesale;
+
+        // B. Labor Cost (Raw)
+        const totalLaborHours = acLaborHours + furnaceLaborHours;
+        const rawLaborCost = totalLaborHours * HOURLY_LABOR_RATE;
+        
+        // C. Extra Items Cost (Raw)
+        let rawExtraItemsCost = 0;
+        let extraItemsBreakdown = [];
+        
+        for (const key in EXTRA_ITEMS) {
+            const item = EXTRA_ITEMS[key];
+            const element = document.getElementById(`extra_${key}`);
+            let itemCost = 0;
+            let quantity = 0;
+
+            if (!element) continue;
+
+            if (item.type === 'quantity') {
+                quantity = parseInt(element.value) || 0;
+                if (quantity > 0) {
+                    itemCost = item.price * quantity;
+                }
+            } else {
+                if (element.checked) {
+                    itemCost = item.price;
+                    quantity = 1;
+                }
+            }
+
+            if (itemCost > 0) {
+                rawExtraItemsCost += itemCost;
+                extraItemsBreakdown.push({
+                    name: item.name, 
+                    price: item.price,
+                    quantity: quantity,
+                    totalCost: itemCost,
+                    category: item.category
+                });
+            }
+        }
+        
+        // --- FINAL FINANCIAL CALCULATION ---
+
+        // 1. Calculate Grand Total of ALL raw costs
+        const grandRawCost = totalUnitCostWholesale + rawLaborCost + rawExtraItemsCost;
+
+        // 2. Apply Overhead (28% of the Grand Raw Cost)
+        const totalOverheadAmount = grandRawCost * EQUIPMENT_OVERHEAD;
+
+        // 3. Calculate Base Subtotal (Raw Costs + Overhead)
+        const baseSubtotal = grandRawCost + totalOverheadAmount;
+        
+        // 4. Apply Profit Margin (15% of the Base Subtotal)
+        const profitAmount = baseSubtotal * PROFIT_MARGIN;
+        
+        // 5. Final Total Price
+        const totalQuote = baseSubtotal + profitAmount;
+
+        // --- CALCULATE DISPLAY VALUES FOR CUSTOMER VIEW ---
+        
+        // Total markup multiplier (1 + Overhead) * (1 + Profit)
+        const totalMultiplier = (1 + EQUIPMENT_OVERHEAD) * (1 + PROFIT_MARGIN); 
+        
+        // Calculate the final price of each component for obfuscated display
+        const finalEquipmentPrice = totalUnitCostWholesale * totalMultiplier;
+        const finalLaborPrice = rawLaborCost * totalMultiplier;
+        const finalExtrasPrice = rawExtraItemsCost * totalMultiplier;
+
+        // 3. Update the Results Display
+        document.getElementById('output-project').textContent = projectName;
+        document.getElementById('output-total').textContent = currency(totalQuote);
+
+        // Build the breakdown HTML string (CUSTOMER VIEW)
+        let breakdownHTML = `
+            <div class="sub-header">Equipment & Materials</div>
+            <div class="quote-detail"><span>AC/Heat Pump Unit:</span><span>${AC_UNITS[acKey].name}</span></div>
+            <div class="quote-detail"><span>Furnace Unit:</span><span>${FURNACE_UNITS[furnaceKey].name}</span></div>
+            <div class="quote-detail"><strong>Total Primary Equipment Cost:</strong><strong>${currency(finalEquipmentPrice)}</strong></div>
+
+            <div class="sub-header">Installation Labor</div>
+            <div class="quote-detail"><span>Total Estimated Labor:</span><span>${totalLaborHours.toFixed(1)} Hours</span></div>
+            <div class="quote-detail"><strong>Total Installation Labor:</strong><strong>${currency(finalLaborPrice)}</strong></div>
+            
+            <div class="sub-header">Extra Items Included</div>
+        `;
+        
+        // Group and display the extra items that were checked/counted
+        if (extraItemsBreakdown.length > 0) {
+            let currentDisplayCategory = '';
+            
+            extraItemsBreakdown.forEach(item => {
+                if (item.category !== currentDisplayCategory) {
+                    breakdownHTML += `<h4 style="margin-top: 15px; margin-bottom: 5px; font-weight: normal; color: #007bff;">${item.category}</h4>`;
+                    currentDisplayCategory = item.category;
+                }
+                
+                let quantityDisplay = '';
+                const finalItemPrice = item.totalCost * totalMultiplier;
+
+                if (item.quantity > 1) {
+                    const finalUnitPrice = item.price * totalMultiplier;
+                    quantityDisplay = `(${item.quantity} @ ${currency(finalUnitPrice)} per unit)`;
+                } else if (item.type === 'quantity' && item.quantity === 1) {
+                    quantityDisplay = `(1 unit)`;
+                }
+
+                breakdownHTML += `<div class="quote-detail" style="font-size: 0.95em;"><span>${item.name} ${quantityDisplay}:</span><span>${currency(finalItemPrice)}</span></div>`;
+            });
+            breakdownHTML += `<div class="quote-detail"><strong>Total Extra Items Price:</strong><strong>${currency(finalExtrasPrice)}</strong></div>`;
+
+        } else {
+            breakdownHTML += `<div class="quote-detail"><span>No extra items selected.</span><span></span></div>`;
+        }
+        
+        // Add Notes if they exist
+        if (jobNotes) {
+            breakdownHTML += `
+                <div class="sub-header">Job Notes</div>
+                <div class="notes-output">${jobNotes}</div>
+            `;
+        }
+        
+        // Final Total is repeated here for clarity
+        breakdownHTML += `
+             <div class="quote-detail total-row" style="margin-top: 25px;">
+                <span>TOTAL CUSTOMER PRICE:</span>
+                <span>${currency(totalQuote)}</span>
+            </div>
+        `;
+
+        document.getElementById('output-breakdown').innerHTML = breakdownHTML;
+        document.getElementById('results').style.display = 'block';
+    }
+
+    // --- PDF Export Function ---
+    function exportToPdf() {
+        const { jsPDF } = window.jspdf;
+        const element = document.getElementById('results');
+        const projectName = document.getElementById('project_name').value.trim() || 'New HVAC Estimate';
+        const filename = `${projectName.replace(/[^a-z0-9]/gi, '_')}_Quote.pdf`;
+
+        const pdfButton = element.querySelector('.button-group');
+        if (pdfButton) {
+            pdfButton.style.display = 'none';
+        }
+
+        html2canvas(element, { 
+            scale: 2, 
+            useCORS: true 
+        }).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4'); 
+            
+            const imgWidth = 210; 
+            const pageHeight = 295; 
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            let heightLeft = imgHeight;
+            let position = 0;
+
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+
+            while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+            }
+            
+            pdf.save(filename);
+
+            if (pdfButton) {
+                pdfButton.style.display = 'flex';
+            }
+        }).catch(error => {
+            console.error('Error generating PDF:', error);
+            alert('Failed to generate PDF. Check the console for details.');
+            if (pdfButton) {
+                pdfButton.style.display = 'flex';
+            }
+        });
+    }
+</script>
+
+</body>
+</html>
